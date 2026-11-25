@@ -29,7 +29,7 @@ LOGGER_METHODS = frozenset(
     {"debug", "info", "warning", "error", "exception", "critical", "log"}
 )
 CUSTOM_ID_KEYS = frozenset({"custom_id"})
-TECHNICAL_TOKEN = re.compile(r"^[A-Za-z0-9_.:\-]+$")
+TECHNICAL_WORD = re.compile(r"^[A-Za-z0-9_.:\-]+$")
 VZP_RE = re.compile(r"(?<![A-Za-z0-9_])VZP(?![A-Za-z0-9_])", re.IGNORECASE)
 GTA_RE = re.compile(r"GTA\s*5\s*RP|GTA5RP", re.IGNORECASE)
 MILTON_RE = re.compile(r"(?<![A-Za-z])Milton(?![A-Za-z])")
@@ -79,7 +79,7 @@ def _skip_ids(tree: ast.AST) -> set[int]:
 
 def _hits(value: str) -> list[str]:
     found: list[str] = []
-    if TECHNICAL_TOKEN.fullmatch(value):
+    if TECHNICAL_WORD.fullmatch(value):
         return found
     if VZP_RE.search(value):
         found.append("VZP")

@@ -14,7 +14,7 @@ DISCORD_CUSTOM_ID_LIMIT: Final[int] = 100
 CURRENT_VERSION: Final[int] = 1
 PREFIX: Final[str] = "g"
 
-_TOKEN = r"[a-z0-9_]+"
+_SEGMENT = r"[a-z0-9_]+"
 _OBJECT = r"[A-Za-z0-9_-]+"
 _PARAM_KEY = r"[a-z][a-z0-9_]*"
 _PARAM_VALUE = r"[A-Za-z0-9_.-]*"
@@ -155,7 +155,7 @@ def parse_custom_id(raw: str, *, allow_stale: bool = False) -> CustomId:
 
 
 def _check_token(field: str, value: str) -> None:
-    if not value or not _matches(_TOKEN, value) or len(value) > 20:
+    if not value or not _matches(_SEGMENT, value) or len(value) > 20:
         raise CustomIdError(f"Поле {field} должно быть коротким токеном [a-z0-9_].")
 
 

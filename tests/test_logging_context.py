@@ -129,7 +129,7 @@ class LogContextTests(unittest.TestCase):
             )
         self.assertIn(
             "***",
-            sanitize_text("postgresql://guinnes:secret@127.0.0.1:5432/db"),
+            sanitize_text("postgresql://guinnes:example-secret@127.0.0.1:5432/db"),
         )
 
     def test_anonymous_payload_is_masked(self) -> None:

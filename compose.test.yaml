@@ -23,7 +23,7 @@ services:
     image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
     environment:
       POSTGRES_USER: guinness_test
-      POSTGRES_PASSWORD: guinness-test-only
+      POSTGRES_PASSWORD: guinness-test-example
       POSTGRES_DB: guinness_bot_test
     volumes:
       - test_pgdata:/var/lib/postgresql/data
@@ -81,7 +81,7 @@ services:
       test-db:
         condition: service_healthy
     environment:
-      POSTGRES_TEST_URL: postgresql://guinness_test:guinness-test-only@test-db:5432/guinness_bot_test
+      POSTGRES_TEST_URL: postgresql://guinness_test:guinness-test-example@test-db:5432/guinness_bot_test
       DATABASE_REQUIRE_POSTGRES: "true"
     command: ["python", "scripts/postgresql_integration_check.py"]
 
@@ -91,8 +91,8 @@ services:
       test-db:
         condition: service_healthy
     environment:
-      POSTGRES_TEST_URL: postgresql://guinness_test:guinness-test-only@test-db:5432/guinness_bot_test
-      DATABASE_URL: postgresql://guinness_test:guinness-test-only@test-db:5432/guinness_bot_test
+      POSTGRES_TEST_URL: postgresql://guinness_test:guinness-test-example@test-db:5432/guinness_bot_test
+      DATABASE_URL: postgresql://guinness_test:guinness-test-example@test-db:5432/guinness_bot_test
       DATABASE_REQUIRE_POSTGRES: "true"
     command: ["python", "scripts/load_test.py", "--help"]
 
