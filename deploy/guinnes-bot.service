@@ -1,0 +1,49 @@
+[Unit]
+Description=Guinness Discord Bot
+Documentation=file:/home/guinnes_bot/deploy/README-ubuntu.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=guinnes_bot
+Group=guinnes_bot
+WorkingDirectory=/home/guinnes_bot
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=DATABASE_REQUIRE_POSTGRES=true
+Environment=SHOWDOWN_STATE_PATH=/var/lib/guinnes-bot/showdown_state.json
+# Logs: stdout → journald. Optional files only if bot_config.toml LOG_DIR
+# is under /var/lib/guinnes-bot (the only writable path).
+ExecStartPre=/usr/bin/test -r /home/guinnes_bot/.env
+ExecStartPre=/usr/bin/test -r /home/guinnes_bot/bot_config.toml
+ExecStartPre=/usr/bin/test -x /home/guinnes_bot/.venv/bin/python
+ExecStart=/home/guinnes_bot/.venv/bin/python /home/guinnes_bot/main.py
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=60s
+TimeoutStopSec=30s
+KillSignal=SIGINT
+SuccessExitStatus=SIGINT SIGTERM 130 143
+UMask=0077
+StateDirectory=guinnes-bot
+StateDirectoryMode=0700
+
+# Basic hardening. Mutable state is isolated from the application sources.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/var/lib/guinnes-bot
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

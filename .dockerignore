@@ -1,0 +1,44 @@
+# Secrets and local env — never bake into the image.
+.env
+.env.*
+!.env.example
+*.env
+*.env.*
+!*.env.example
+secrets/
+.credentials/
+
+# VCS and local toolchains
+.git/
+.venv/
+.tmp-venv*/
+.tmp-compile*/
+.idea/
+.vscode/
+
+# Mutable / generated state
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+showdown_state.json
+showdown_state.json.tmp
+logs/
+*.log
+
+# Caches and gate output
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.release_gate/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/

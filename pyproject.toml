@@ -1,0 +1,105 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [".venv", ".tmp-venv*", ".tmp-compile*"]
+
+[tool.ruff.lint]
+# The gate used to be E9/F63/F7/F82 — syntax errors and a handful of always-fatal
+# checks. That let real defects through: unused imports, late-binding closures
+# over loop variables, zip() silently truncating on a length mismatch.
+#
+# E501 stays out deliberately: the codebase has long Russian strings whose
+# reflowing would be churn without benefit, and line length is not a defect.
+select = [
+    "E9",      # syntax and indentation errors
+    "F",       # pyflakes: undefined names, unused imports, redefinitions
+    "B",       # bugbear: late-binding closures, mutable defaults, strict zip
+    "ASYNC",   # blocking calls inside coroutines
+    "C4",      # redundant comprehensions
+]
+ignore = [
+    # Aimed at trio/anyio. The two call sites are a one-off migration backup and
+    # a path resolution on the SQLite fallback; both are negligible under asyncio
+    # and neither is on a request path.
+    "ASYNC240",
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+allow_untyped_defs = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = false
+
+[[tool.mypy.overrides]]
+module = ["discord.*", "aiosqlite.*", "psycopg.*", "psycopg_pool.*"]
+ignore_missing_imports = true
+
+# Single source for CI "Typed infrastructure" and scripts/release_gate.py.
+# Do not diverge the lists: both consumers read this key.
+[tool.guinness]
+mypy_targets = [
+    "infrastructure/transactions.py",
+    "repositories/operations.py",
+    "services/metrics.py",
+    "ui/message_specs.py",
+    "core/profile.py",
+    "core/settings.py",
+    "repositories/settings.py",
+    "core/log_context.py",
+    "core/logging_setup.py",
+    "repositories/audit.py",
+    "services/audit.py",
+    "core/permissions.py",
+    "repositories/permissions.py",
+    "ui/design.py",
+    "ui/templates.py",
+    "ui/results.py",
+    "ui/custom_ids.py",
+    "ui/navigation.py",
+    "services/provisioning.py",
+    "services/config_panel.py",
+    "services/panels.py",
+    "repositories/family.py",
+    "repositories/members.py",
+    "services/membership.py",
+    "services/member_panel.py",
+    "services/onboarding.py",
+    "repositories/training.py",
+    "services/roster_watch.py",
+    "repositories/contracts.py",
+    "services/contracts.py",
+    "repositories/reports.py",
+    "services/report_review.py",
+    "services/profit.py",
+    "repositories/queue.py",
+    "services/queue.py",
+    "repositories/events.py",
+    "services/event_planning.py",
+    "services/calendar.py",
+    "repositories/accounts.py",
+    "services/treasury.py",
+    "repositories/contribution.py",
+    "services/contribution.py",
+    "repositories/bonus.py",
+    "services/bonus.py",
+    "repositories/inventory.py",
+    "services/inventory.py",
+    "repositories/cars.py",
+    "services/vehicles.py",
+    "repositories/progression.py",
+    "services/progression.py",
+    "services/external/__init__.py",
+    "services/external/base.py",
+    "services/external/majestic_api.py",
+    "services/external/rage_master.py",
+    "repositories/game_online.py",
+    "services/insights.py",
+    "repositories/maps.py",
+    "services/maps.py",
+    "repositories/summits.py",
+    "services/summit_archive.py",
+    "services/help.py",
+    "services/staff_panel.py",
+]

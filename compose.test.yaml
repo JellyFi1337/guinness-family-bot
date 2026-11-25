@@ -1,0 +1,106 @@
+# Isolated test stack — never point at application / production volumes.
+#
+#   docker compose -p guinness-test -f compose.test.yaml up -d test-db
+#   docker compose -p guinness-test -f compose.test.yaml run --rm integration
+#
+# Project name MUST stay guinness-test (or another *test* name). Database name
+# contains "test" so scripts/postgresql_integration_check.py will accept it.
+
+name: guinness-test
+
+x-bot-test-image: &bot_test_image
+  build:
+    context: .
+    target: test
+  image: guinness-bot:test
+  networks:
+    - test_internal
+  mem_limit: 2g
+  cpus: 2.0
+
+services:
+  test-db:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_USER: guinness_test
+      POSTGRES_PASSWORD: guinness-test-only
+      POSTGRES_DB: guinness_bot_test
+    volumes:
+      - test_pgdata:/var/lib/postgresql/data
+    networks:
+      - test_internal
+    ports:
+      # Loopback only — for host-side runners / local integration checks.
+      - "127.0.0.1:54329:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guinness_test -d guinness_bot_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: "no"
+    mem_limit: 512m
+    cpus: 1.0
+
+  unit:
+    <<: *bot_test_image
+    depends_on:
+      test-db:
+        condition: service_healthy
+        required: false
+    environment:
+      # Force suite away from any accidental host DSN; tests pin SQLite themselves.
+      DATABASE_URL: ""
+      DATABASE_REQUIRE_POSTGRES: "false"
+    command:
+      ["python", "-m", "unittest", "discover", "-s", "tests", "-t", "."]
+
+  quality:
+    <<: *bot_test_image
+    environment:
+      DATABASE_URL: ""
+    command:
+      - python
+      - -c
+      - |
+        import subprocess, sys, tomllib
+        from pathlib import Path
+        subprocess.check_call([sys.executable, "-m", "ruff", "check", "."])
+        targets = tomllib.loads(
+            Path("pyproject.toml").read_text(encoding="utf-8")
+        )["tool"]["guinness"]["mypy_targets"]
+        raise SystemExit(
+            subprocess.call(
+                [sys.executable, "-m", "mypy", "--explicit-package-bases", *targets]
+            )
+        )
+
+  integration:
+    <<: *bot_test_image
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      POSTGRES_TEST_URL: postgresql://guinness_test:guinness-test-only@test-db:5432/guinness_bot_test
+      DATABASE_REQUIRE_POSTGRES: "true"
+    command: ["python", "scripts/postgresql_integration_check.py"]
+
+  load:
+    <<: *bot_test_image
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      POSTGRES_TEST_URL: postgresql://guinness_test:guinness-test-only@test-db:5432/guinness_bot_test
+      DATABASE_URL: postgresql://guinness_test:guinness-test-only@test-db:5432/guinness_bot_test
+      DATABASE_REQUIRE_POSTGRES: "true"
+    command: ["python", "scripts/load_test.py", "--help"]
+
+volumes:
+  test_pgdata:
+    name: guinness_test_pgdata
+
+networks:
+  test_internal:
+    name: guinness_test_internal
+    driver: bridge

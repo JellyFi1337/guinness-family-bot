@@ -1,0 +1,84 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unittest:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --require-hashes -r requirements.lock
+      - name: Run unit and integration tests
+        # -t . is required so tests/__init__.py is imported (pins the suite to
+        # a temporary SQLite DB). Without it, discover treats tests/ as the
+        # top-level package root and skips the package __init__.
+        run: python -m unittest discover -s tests -t . -v
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked development dependencies
+        run: python -m pip install --require-hashes -r requirements-dev.lock
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Typed infrastructure
+        # Targets come from [tool.guinness].mypy_targets in pyproject.toml —
+        # the same list scripts/release_gate.py uses (F10.2).
+        run: >-
+          python -c "import subprocess, sys, tomllib; from pathlib import Path;
+          targets = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['tool']['guinness']['mypy_targets'];
+          raise SystemExit(subprocess.call([sys.executable, '-m', 'mypy', '--explicit-package-bases', *targets]))"
+
+  postgresql:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    services:
+      postgres:
+        # PostgreSQL 17 — matches compose / compose.test digests line (alpine 17).
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: guinness_bot_test
+          POSTGRES_USER: guinness
+          POSTGRES_PASSWORD: guinness-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U guinness -d guinness_bot_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Runner reads POSTGRES_TEST_URL (F14); name must contain "test".
+      POSTGRES_TEST_URL: postgresql://guinness:guinness-test-only@127.0.0.1:5432/guinness_bot_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install --require-hashes -r requirements.lock
+      - name: PostgreSQL translation, concurrency and migration check
+        run: python scripts/postgresql_integration_check.py

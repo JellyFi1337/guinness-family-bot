@@ -1,0 +1,9 @@
+-r requirements.txt
+
+mypy==2.3.0
+pip-tools==7.6.0
+pillow==12.3.0
+ruff==0.16.0
+# pip-tools declares setuptools as a runtime dependency; without an explicit
+# pin (and --allow-unsafe on compile) hashed installs fail on a clean venv.
+setuptools

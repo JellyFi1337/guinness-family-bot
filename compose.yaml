@@ -1,0 +1,148 @@
+# Guinness Bot — bot + PostgreSQL (Compose)
+#
+# Quick start (Windows):
+#   docker-start.bat
+#   docker-stop.bat
+#
+# CLI:
+#   docker compose --env-file deploy/compose.env up -d --build
+#   docker compose --env-file deploy/compose.env down
+#
+# Secrets: mount ./.env (BOT_PROFILE, TOKEN_*, GUILD_ID_*).
+# Optional TOKEN_FILE is a fallback; empty file is ignored.
+# Host DATABASE_URL from .env is overridden by DATABASE_HOST=db.
+#
+# Diagnostic Postgres on loopback:
+#   docker compose --env-file deploy/compose.env --profile diag up -d
+
+name: ${COMPOSE_PROJECT_NAME:-guinness}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-guinness}
+      POSTGRES_DB: ${POSTGRES_DB:-guinness_bot}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      TZ: ${TZ:-Europe/Moscow}
+      PGTZ: ${TZ:-Europe/Moscow}
+    secrets:
+      - db_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *default-logging
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+
+  # Optional: publish PostgreSQL on loopback only.
+  #   docker compose --env-file deploy/compose.env --profile diag up -d
+  db-diag:
+    profiles: ["diag"]
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    network_mode: "service:db"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${POSTGRES_DIAG_PORT:-5432}:5432"
+    entrypoint: ["/bin/sh", "-c", "sleep infinity"]
+    restart: "no"
+    mem_limit: 64m
+    cpus: 0.1
+    security_opt:
+      - no-new-privileges:true
+
+  bot:
+    build:
+      context: .
+      target: runtime
+    image: ${BOT_IMAGE_NAME:-guinness-bot:compose}
+    init: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_REQUIRE_POSTGRES: "true"
+      DATABASE_HOST: db
+      DATABASE_PORT: "5432"
+      DATABASE_USER: ${POSTGRES_USER:-guinness}
+      DATABASE_NAME: ${POSTGRES_DB:-guinness_bot}
+      DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      TOKEN_FILE: /run/secrets/discord_token
+      BOT_CONFIG_PATH: /app/bot_config.toml
+      DB_PATH: /data/guinness_bot.db
+      SHOWDOWN_STATE_PATH: /data/showdown_state.json
+      LOG_DIR: /data/logs
+      TZ: ${TZ:-Europe/Moscow}
+    secrets:
+      - db_password
+      - discord_token
+    volumes:
+      - bot_data:/data
+      - type: bind
+        source: ${BOT_CONFIG_HOST_PATH:-./deploy/bot_config.example.toml}
+        target: /app/bot_config.toml
+        read_only: true
+      - type: bind
+        source: ${BOT_ENV_HOST_PATH:-./.env}
+        target: /app/.env
+        read_only: true
+    networks:
+      - internal
+    healthcheck:
+      # Process alive (Discord has no local HTTP). start_period covers migrations + login.
+      test:
+        [
+          "CMD-SHELL",
+          "kill -0 1 2>/dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+    stop_grace_period: 45s
+    logging: *default-logging
+    mem_limit: 1g
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  db_password:
+    file: ${DB_PASSWORD_HOST_PATH:-./secrets/db_password}
+  discord_token:
+    file: ${TOKEN_HOST_PATH:-./secrets/discord_token}
+
+volumes:
+  pgdata:
+    name: ${COMPOSE_VOLUME_PREFIX:-guinness}_pgdata
+  bot_data:
+    name: ${COMPOSE_VOLUME_PREFIX:-guinness}_bot_data
+
+networks:
+  internal:
+    name: ${COMPOSE_VOLUME_PREFIX:-guinness}_internal
+    driver: bridge

@@ -1,0 +1,410 @@
+# GUINNESS BOT — шаблон публичных настроек для Docker / нового сервера.
+# Скопируйте в bot_config.toml (или смонтируйте read-only в /app/bot_config.toml).
+# Discord identity — только в .env:
+#   BOT_PROFILE, TOKEN_TEST/TOKEN_MAIN, GUILD_ID_TEST/GUILD_ID_MAIN,
+#   BOT_OWNER_ID, COMMAND_SYNC_FORCE, COMMAND_CLEAR_GLOBAL.
+# Секреты DATABASE_URL / MAJESTIC_API_KEY — тоже только .env / *_FILE.
+# В контейнере пути по умолчанию задаёт образ (/data/...); BOT_CONFIG_PATH уже поддерживается.
+# Секции [channels], [categories], [roles], [access], [economy], [cooldowns]
+# и [profile] можно переопределить на работающем боте (таблица runtime_settings).
+# Живые ключи меняйте через /config, кроме restart_required (файл и перезапуск).
+# DB_POOL_SIZE и пути требуют перезапуска. Секреты в runtime_settings не хранятся.
+
+[profile]
+# Контекст «проект — сервер — семья — сезон». От него зависят каталоги
+# активностей, календарь, тексты, источник онлайна и включённые модули.
+# Неизвестные игровые значения оставляйте пустыми: бот их не подставляет.
+server_key = "memphis"
+family_name = "Guinness"
+family_tag = ""
+direction = "unset"
+timezone = "Europe/Moscow"
+# Второй сезон рейтинга Majestic (сборка 4.2007.935). Даты настраиваются
+# здесь, а не зашиваются в код: при объявлении следующего сезона меняется файл.
+season_key = "season-2"
+season_start = "2026-07-28"
+season_end = "2026-10-27"
+# Срок адаптации, удержание рекрутинга и политика фамилии — живые ключи
+# /config группы onboarding (ONBOARDING_PROBATION_DAYS, ONBOARDING_RETENTION_DAYS,
+# FAMILY_SURNAME_POLICY). 0 = не задано, сроки не выдумываются.
+# Адаптер 9.1 есть: none / majestic_api / rage_master. Пока URL, версия,
+# serverId, лимит и подпись в [external] пусты, majestic_api не стартует.
+# none не ходит в master-list RAGE. Архивный rage_master включается
+# профилем online_source и непустой строкой rage_server_query.
+online_source = "none"
+# Архивный RAGE master-list. Активный Memphis эти поля не использует.
+# Устаревшие ключи мониторинга Milton ещё читаются с предупреждением в логе.
+rage_master_url = "https://cdn.rage.mp/master/"
+rage_server_query = ""
+rage_server_name = ""
+rage_master_enabled = true
+presence_status_text = "{server}: {players} {players_word}"
+presence_game_interval = 60
+rage_request_timeout = 10
+# Пустой список: шаблоны активностей и событий выключены, пока старший состав
+# не подтвердит открытые улучшения. Неизвестный идентификатор — ошибка.
+# Шаблоны /event читают этот список; вместимость капта — подтверждённые
+# лимиты Majestic (20 / 35 / 50), не число кнопок Discord.
+enabled_upgrades = []
+# Базовый лимит состава Majestic источником не подтверждён. Улучшение
+# «Участники организации» поднимает предел ступенями +10…+90 — ступени
+# подключаются в 8.3, /members сейчас читает только это поле. Пустое значение
+# значит «требует настройки»; не подставляйте 150 и другие допущения для нагрузки.
+member_limit = ""
+# Архивный профиль milton нельзя сделать активным без этого флага.
+allow_archived = false
+# Идентификатор Memphis в публичном API и рейтинге. Пусто — значение реестра (RU19).
+external_server_id = ""
+
+[profile.schedule]
+# Подтверждённое расписание Memphis. Код только разбирает эти поля;
+# пустое значение значит «требует настройки», время не выдумывается.
+# Внутриигровые напоминания F2 за 3 ч / 1 ч / 10 мин / 1 мин бот не повторяет.
+# Ключи живут в /config, группа calendar.
+schedule_org_days = ["mon", "wed", "fri", "sat"]
+schedule_rest_days = ["tue", "thu", "sun"]
+schedule_air_cargo = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]
+schedule_dealers = ["10:30", "18:30"]
+schedule_workshops = ["14:30", "22:45"]
+schedule_influence_window = "12:00-23:00"
+schedule_hold_influence = "12:00"
+schedule_lottery_days = ["mon", "wed", "fri", "sun"]
+schedule_lottery_time = "18:00"
+schedule_auction_days = ["tue", "thu", "sat"]
+schedule_auction_time = "18:00"
+# Срок метки склада после победы в вербовке дилеров — подтверждённое число wiki.
+schedule_warehouse_tag_hours = 6
+
+[status]
+BOT_STATUS = "online"
+BOT_ACTIVITY_TYPE = "playing"
+BOT_ACTIVITY_TEXT = "Guinness Family"
+BOT_ACTIVITY_TEXTS = ""
+BOT_ACTIVITY_INTERVAL = 60
+BOT_STREAM_URL = "https://www.twitch.tv/discord"
+
+[paths]
+# SQLite оставлен только для изолированных тестов без DATABASE_URL.
+DB_PATH = "guinness_bot.db"
+SHOWDOWN_STATE_PATH = "showdown_state.json"
+FFMPEG_EXECUTABLE = "ffmpeg"
+
+[database]
+DB_POOL_SIZE = 4
+STATS_QUEUE_SIZE = 50000
+STATS_FLUSH_BATCH_SIZE = 2000
+STATS_RAW_RETENTION_DAYS = 90
+STATS_AGGREGATE_RETENTION_DAYS = 730
+TASK_HEALTH_HEARTBEAT_SECONDS = 60
+OPERATION_RETENTION_DAYS = 30
+POLL_RETENTION_DAYS = 180
+# Журнал решений. 0 отключает фоновую очистку.
+AUDIT_RETENTION_DAYS = 365
+
+[logging]
+# Основной канал — stdout, его забирает journald. Файлы выключены, пока
+# LOG_DIR пуст. На сервере указывайте /var/lib/guinnes-bot/logs: юнит может
+# писать только туда (ProtectHome=read-only, ReadWritePaths=/var/lib/guinnes-bot).
+# Не ставьте ./logs в корне проекта — при старте это PermissionError.
+LOG_DIR = ""
+# text — key=value в одну строку; json — одна JSON-запись на строку.
+LOG_FORMAT = "text"
+LOG_LEVEL = "INFO"
+# Имя=уровень через запятую. discord.gateway и discord.client всегда не ниже WARNING.
+LOG_LOGGER_LEVELS = "discord.gateway=WARNING,discord.client=WARNING"
+
+[channels]
+# Рекомендуемая структура Memphis (мастер /setup предлагает эти имена при создании):
+# публичные: старт-и-правила, мои-задачи, события, отчёты, помощь;
+# закрытые: очередь-сс, выплаты, снабжение, аудит.
+# Ключи CHANNEL_* не переименовываются: живой сервер привязан по ID.
+# CHANNEL_VZP / CHANNEL_SUMMIT_VZP — устаревшие ключи; значения без терминов Milton.
+CHANNEL_FAMILY_FEATURES = "старт-и-правила"
+CHANNEL_FAMILY_FEATURES_ID = ""
+CHANNEL_SHOP = "старт-и-правила"
+CHANNEL_SHOP_ID = ""
+CHANNEL_HELP = "помощь"
+CHANNEL_HELP_ID = ""
+CHANNEL_HELP_TARGET = "🛟・help"
+CHANNEL_HELP_TARGET_ID = ""
+CHANNEL_REQUEST_SS = "очередь-сс"
+CHANNEL_REQUEST_SS_ID = ""
+CHANNEL_VZP = "старт-и-правила"
+CHANNEL_VZP_ID = ""
+CHANNEL_VZP_INVITE = "очередь-сс"
+CHANNEL_VZP_INVITE_ID = ""
+CHANNEL_FAMILY_INVITE = "🐳・заявки-в-семью"
+CHANNEL_FAMILY_INVITE_ID = ""
+CHANNEL_FAMILY_INVITE_LOGS = "📋・заявки-в-семью"
+CHANNEL_FAMILY_INVITE_LOGS_ID = ""
+CHANNEL_ADD_BIRTHDAY = "старт-и-правила"
+CHANNEL_ADD_BIRTHDAY_ID = ""
+CHANNEL_BIRTHDAY_REQUEST = "📝・сс-запросы"
+CHANNEL_BIRTHDAY_REQUEST_ID = ""
+CHANNEL_HAPPY_BIRTHDAY = "🎉・дни-рождения"
+CHANNEL_HAPPY_BIRTHDAY_ID = ""
+CHANNEL_ADD_ROLES = "🔑・роли"
+CHANNEL_ADD_ROLES_ID = ""
+CHANNEL_ROLE_REQUEST = "📝・сс-запросы"
+CHANNEL_ROLE_REQUEST_ID = ""
+CHANNEL_REQUEST_ACTIONS = "аудит"
+CHANNEL_REQUEST_ACTIONS_ID = ""
+CHANNEL_ANONYMOUS_REQUEST = "🎭・анон-обращения"
+CHANNEL_ANONYMOUS_REQUEST_ID = ""
+CHANNEL_ANONYMOUS_LOGS = "🕵・анон-логи"
+CHANNEL_ANONYMOUS_LOGS_ID = ""
+CHANNEL_ROLE_APPROVAL = "📝・сс-запросы"
+CHANNEL_ROLE_APPROVAL_ID = ""
+CHANNEL_TREASURY = "выплаты"
+CHANNEL_TREASURY_ID = ""
+CHANNEL_TRANSACTIONS = "💱・транзакции"
+CHANNEL_TRANSACTIONS_ID = ""
+CHANNEL_SUMMIT_LIST = "события"
+CHANNEL_SUMMIT_LIST_ID = ""
+# Панель каталога 5.1 и прежние сборы summit. Списки контрактов в код не зашиты.
+CHANNEL_SUMMIT_CONTRACT = "отчёты"
+CHANNEL_SUMMIT_CONTRACT_ID = ""
+CHANNEL_SUMMIT_VZP = "архив-сборов"
+CHANNEL_SUMMIT_VZP_ID = ""
+CHANNEL_GIVEAWAYS = "🎁・розыгрыши"
+CHANNEL_GIVEAWAYS_ID = ""
+CHANNEL_CAR_LIST = "снабжение"
+CHANNEL_CAR_LIST_ID = ""
+CHANNEL_CAR_BOOKINGS = "🚗・авто-логи"
+CHANNEL_CAR_BOOKINGS_ID = ""
+CHANNEL_WEEKLY_STATS = "📢・новости"
+CHANNEL_WEEKLY_STATS_ID = ""
+CHANNEL_RECRUITING = "💼・рекрутинг"
+CHANNEL_RECRUITING_ID = ""
+CHANNEL_RECRUITING_LOGS = "📎・рекрутинг-логи"
+CHANNEL_RECRUITING_LOGS_ID = ""
+CHANNEL_RECRUITING_INVITE = "🐳・заявки-в-семью"
+CHANNEL_RECRUITING_INVITE_ID = ""
+# Карточки выхода из Discord и снятия игровой роли. Пинг — только при игровой роли.
+CHANNEL_ROSTER_WATCH = "📋・выход-состава"
+CHANNEL_ROSTER_WATCH_ID = ""
+CHANNEL_CREATE_VOICE = "🌠・Create Voice +"
+CHANNEL_CREATE_VOICE_ID = ""
+# Панели API Majestic. Пустые ID — как у остальных каналов; без настроек API панели не разворачиваются.
+CHANNEL_INSIGHTS_RATING = "📈・рейтинг"
+CHANNEL_INSIGHTS_RATING_ID = ""
+CHANNEL_INSIGHTS_BATTLES = "📋・разборы"
+CHANNEL_INSIGHTS_BATTLES_ID = ""
+CHANNEL_INSIGHTS_MARKET = "🛒・рынок"
+CHANNEL_INSIGHTS_MARKET_ID = ""
+CHANNEL_INSIGHTS_PROPERTY = "🏠・псн"
+CHANNEL_INSIGHTS_PROPERTY_ID = ""
+AFK_VOICE_CHANNEL = "💤・Спальня"
+AFK_VOICE_CHANNEL_ID = ""
+
+[categories]
+CATEGORY_HIGH_TOOLS = "🔰・HIGH TOOLS ・🔰"
+CATEGORY_HIGH_TOOLS_ID = ""
+CATEGORY_PUBLIC = "🌐・PUBLIC・🌐"
+CATEGORY_PUBLIC_ID = ""
+CATEGORY_FAMILY = "🏠・FAMILY・🏠"
+CATEGORY_FAMILY_ID = ""
+CATEGORY_INTERACTIVE = "🕹️・INTERACTIVE・🕹️"
+CATEGORY_INTERACTIVE_ID = ""
+CHANNEL_TICKETS_CATEGORY = "🏷️・TICKETS・🏷️"
+CATEGORY_TICKETS_ID = ""
+CATEGORY_BIRTHDAY_FUNDRAISER = "🎂・BIRTHDAY SECRET・🎂"
+CATEGORY_BIRTHDAY_FUNDRAISER_ID = ""
+CATEGORY_CREATE_VOICE = "✨・VOICES・✨"
+CATEGORY_VOICE_CREATE_ID = ""
+CATEGORY_GROUPS = "🌸・GROUPS・🌸"
+CATEGORY_GROUPS_ID = ""
+CATEGORY_DEVELOPER = "⚙️・DEVELOPER・⚙️"
+CATEGORY_DEVELOPER_ID = ""
+
+[roles]
+# Имя — запасной вариант, ID — авторитетный источник. Заполните каждый *_ROLE_ID:
+# ID переживает переименование роли и снимает неоднозначность при совпадении имён.
+# Готовый к вставке блок печатает `/admin config_ids`.
+# VZP_TEAM_ROLE, LEAD_VZP_ROLE, VZP_1_ROLE, VZP_2_ROLE, VZP_3_ROLE устарели:
+# на приоритет и допуск не влияют. Ключи оставляйте до ручной чистки администратором.
+STAFF_ROLE = "High"
+STAFF_ROLE_ID = ""
+HIGH_ROLE = "High"
+HIGH_ROLE_ID = ""
+OWNER_ROLE = "Owner"
+OWNER_ROLE_ID = ""
+DEP_OWNER_ROLE = "Dep. Owner"
+DEP_OWNER_ROLE_ID = ""
+VZP_TEAM_ROLE = "VZP Team"
+VZP_TEAM_ROLE_ID = ""
+GUEST_ROLE = "Guest"
+GUEST_ROLE_ID = ""
+YOUNG_ROLE = "Young"
+YOUNG_ROLE_ID = ""
+MAIN_ROLE = "Main"
+MAIN_ROLE_ID = ""
+FRIEND_ROLE = "Friend"
+FRIEND_ROLE_ID = ""
+SUPER_FRIEND_ROLE = "Super Friend"
+SUPER_FRIEND_ROLE_ID = ""
+HELP_ROLE = "Help"
+HELP_ROLE_ID = ""
+CONTRACT_ROLE = "Contract"
+CONTRACT_ROLE_ID = ""
+LEAD_VZP_ROLE = "Lead VZP"
+LEAD_VZP_ROLE_ID = ""
+VIP_ROLE = "🪙 VIP"
+VIP_ROLE_ID = ""
+VZP_1_ROLE = "[1] VZP"
+VZP_1_ROLE_ID = ""
+VZP_2_ROLE = "[2] VZP"
+VZP_2_ROLE_ID = ""
+VZP_3_ROLE = "[3] VZP"
+VZP_3_ROLE_ID = ""
+
+[access]
+# Полномочия ролей живут в таблице permission_grants, не в этом файле.
+# При первом запуске роли HIGH_TOOLS_ALLOWED_* получают набор старшего
+# состава, TREASURY_OWNER_ROLE — казначейские. Contract и боевые оповещения
+# полномочий не дают.
+REQUEST_PING_ROLES = "Owner,Dep. Owner,High"
+REQUEST_PING_ROLE_IDS = ""
+HIGH_TOOLS_ALLOWED_ROLES = "Owner,Dep. Owner,High"
+HIGH_TOOLS_ALLOWED_ROLE_IDS = ""
+TREASURY_OWNER_ROLE = "Owner"
+TREASURY_OWNER_ROLE_ID = ""
+POLL_ALLOWED_ROLES = "Owner,Dep. Owner,High"
+POLL_ALLOWED_ROLE_IDS = ""
+RECRUITING_ROLES = "Owner,Dep. Owner,High"
+RECRUITING_ROLE_IDS = ""
+TICKET_ASSIGNMENT_ROLE_HIERARCHY = "Owner,Dep. Owner,High"
+TICKET_ASSIGNMENT_ROLE_HIERARCHY_IDS = ""
+ROLE_REJECTION_REASONS = "Провокационное название|Имитация старшего состава|Нецензурное название|Нарушение правил|Другое"
+
+[roster]
+# skip — не создавать карточку; silent — карточка без пинга. Пинг только у игровых ролей.
+ROSTER_WATCH_VISITOR_POLICY = "skip"
+ROSTER_WATCH_BOT_POLICY = "skip"
+# Пустые ID — взять REQUEST_PING_*.
+ROSTER_WATCH_PING_ROLE_IDS = ""
+ROSTER_WATCH_PING_ROLES = ""
+
+[reports]
+# 0 — не задано, игровые пороги не выдумываются.
+REPORT_DETAIL_THRESHOLD = 0
+REPORT_EVIDENCE_MAX_BYTES = 0
+REPORT_EVIDENCE_RETENTION_DAYS = 0
+# 0 — все принятые отчёты контракта, число запусков не выдумывается.
+PROFIT_PURCHASE_LOOKBACK = 0
+
+[queue]
+# 0 — срок не задан, автоэскалации нет. Игровое число не выдумывается.
+QUEUE_SLA_MINUTES = 0
+# Пусто — заместители не заданы, человека бот не выбирает сам.
+QUEUE_DEPUTY_ROLE_IDS = ""
+# Соответствие типа очереди специализации из пункта 4.4. Пустой тип — любой.
+QUEUE_KIND_SPECIALIZATION = "report:contracts"
+
+[economy]
+COINS_DAILY = 100
+COINS_COLOR_ROLE = 700
+COINS_CUSTOM_ROLE = 1400
+COINS_VIP_WEEK = 700
+COINS_VIP_MONTH = 2400
+COINS_SUMMIT_EMOJI = 1000
+COINS_MESSAGE_REWARD = 5
+COINS_VOICE_REWARD_PER_MINUTE = 0.5
+COINS_MESSAGE_COOLDOWN_SECONDS = 45
+COINS_MESSAGE_MIN_LENGTH = 4
+COINS_MESSAGE_DAILY_CAP = 500
+COINS_VOICE_DAILY_CAP = 300
+COINS_VOICE_MIN_ACTIVE_MEMBERS = 2
+COINS_MESSAGE_EXCLUDED_CHANNEL_IDS = ""
+
+[treasury]
+# Порог пакетного согласования мелких типовых выплат в игровых деньгах.
+# 0 — пакет выключен, лидер задаёт порог сам. Число не выдумывается.
+TREASURY_BATCH_THRESHOLD = 0
+
+[contribution]
+# Заслуги за подтверждённый результат. 0 — правило не задано, начисления нет.
+# Числа не выдумываются: их публикует старший состав новой версией правил.
+CONTRIBUTION_CONTRACT = 0
+CONTRIBUTION_ATTENDANCE = 0
+CONTRIBUTION_MENTORING = 0
+CONTRIBUTION_WAREHOUSE = 0
+CONTRIBUTION_LOGISTICS = 0
+CONTRIBUTION_DUTY = 0
+
+[bonus]
+# Премия игровыми деньгами. 0 — порог или влияние не заданы, число не выдумывается.
+# Таблица рангов — справочник сезона из плана; пороги менялись и изменятся снова.
+BONUS_PERIOD_KIND = "week"
+BONUS_MIN_POINTS = 0
+BONUS_MAX_SHARE_PERCENT = 0
+BONUS_ORG_INFLUENCE = 0
+BONUS_RANK_THRESHOLDS = "500,1300,2600,4200,6300,8700,11500"
+BONUS_RANK_NAMES = "Чужаки,Местные,Авангард,Синдикат,Картель,Империя,Орден"
+BONUS_RANK_MULTIPLIER_MILLI = "1100,1200,1350,1500,1650,1800,2000"
+BONUS_RANK_DC = "100,250,450,750,1100,1500,2000"
+
+[inventory]
+# Ёмкости — подтверждённые значения Majestic. 0 у порога предмета и сверки — не задано.
+INVENTORY_WAREHOUSE_SLOTS = 20
+INVENTORY_SAFE_MONEY = 10000000
+INVENTORY_GUN_CABINET_KG = 1000
+INVENTORY_PANTRY_KG = 100
+INVENTORY_GARAGE_EXTRA_MAX = 30
+INVENTORY_MAT_L1_KG = 1000
+INVENTORY_MAT_L2_KG = 2000
+INVENTORY_MAT_L3_KG = 4000
+INVENTORY_MAT_LEVEL = 0
+INVENTORY_LOW_STOCK = 0
+INVENTORY_RECONCILE_STALE_HOURS = 0
+INVENTORY_SALE_PERCENT = 75
+
+[progression]
+# Сезонное право и смена направления — подтверждённые числа плана, не выдуманные перки.
+# Даты сезона живут в [profile], не здесь.
+PROGRESSION_SEASON_MEMBERSHIP_DAYS = 28
+PROGRESSION_SEASON_PLAY_HOURS = 30
+PROGRESSION_DIRECTION_COOLDOWN_DAYS = 7
+PROGRESSION_REP_LOSS_PER_MILLE = 50
+PROGRESSION_MAX_LEVEL = 9
+
+[external]
+# Четыре группы заполняет старший состав, код их не угадывает: URL и версия,
+# serverId Memphis, фактический лимит N/M, формат подписи источника.
+# До заполнения интеграция выключена и не считается ошибкой.
+# Ключ API — только MAJESTIC_API_KEY в .env, заголовок x-api-key.
+EXTERNAL_API_BASE_URL = ""
+EXTERNAL_API_VERSION = ""
+EXTERNAL_API_SERVER_ID = ""
+EXTERNAL_API_RATE_LIMIT = 0
+EXTERNAL_API_RATE_WINDOW_SECONDS = 0
+EXTERNAL_API_ATTRIBUTION = ""
+EXTERNAL_KEY_OWNER = ""
+EXTERNAL_API_TIMEOUT_SECONDS = 10
+
+[music]
+MUSIC_PRICE_SHORT = 500
+MUSIC_PRICE_LONG = 1000
+MUSIC_LONG_TRACK_SECONDS = 600
+MUSIC_MAX_TRACK_SECONDS = 7200
+MUSIC_MAX_QUEUE_SIZE = 25
+MUSIC_MAX_USER_QUEUE = 3
+MUSIC_PLAY_COOLDOWN_SECONDS = 10
+MUSIC_MAX_CONCURRENT_EXTRACTS = 4
+MUSIC_CANCEL_WINDOW_SECONDS = 30
+MUSIC_PUBLIC_SKIP_REFUND_SECONDS = 180
+MUSIC_SKIP_MIN_VOTES = 2
+MUSIC_SKIP_VOTE_RATIO = 0.5
+MUSIC_IDLE_TIMEOUT_SECONDS = 120
+MUSIC_VOLUME_PERCENT = 50
+MUSIC_VOLUME_STEP_PERCENT = 10
+MUSIC_EXTRACT_TIMEOUT_SECONDS = 20
+MUSIC_ALLOWED_HOSTS = "youtube.com,youtu.be,music.youtube.com,soundcloud.com"
+
+[cooldowns]
+HELP_REQUEST_COOLDOWN_SECONDS = 300
+HELP_COMMAND_COOLDOWN_SECONDS = 5
+SUMMIT_LIST_COOLDOWN_SECONDS = 30
+# Значения перенесены на /event create и /contract start; ключи сохранены.
+SUMMIT_VZP_COOLDOWN_SECONDS = 30
+SUMMIT_CONTRACT_COOLDOWN_SECONDS = 30
